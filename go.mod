@@ -1,3 +1,3 @@
-module github.com/blabern/blog
+module github.com/blaqbern/blog
 
 go 1.17

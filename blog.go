@@ -2,21 +2,15 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
-	"github.com/blaqbern/blog/cors"
+	"github.com/blaqbern/blog/internal/middleware"
 	"io/ioutil"
 	"log"
 	"net/http"
 )
 
 type Post struct {
-	Title string
-	Body  []byte
-}
-
-func (p *Post) save() error {
-	filename := p.Title + ".md"
-	return ioutil.WriteFile(filename, p.Body, 0600)
+	Title string `json:"title"`
+	Body  string `json:"body"`
 }
 
 func getPostList() ([]string, error) {
@@ -34,31 +28,33 @@ func getPostList() ([]string, error) {
 }
 
 func getPost(title string) (*Post, error) {
-	filename := title + ".md"
+	filename := "./posts/" + title + ".md"
 	body, err := ioutil.ReadFile(filename)
+	log.Printf("title = %v; body = %v", title, string(body))
 	if err != nil {
+		log.Printf("err = %v", err)
 		return nil, err
 	}
-	return &Post{Title: title, Body: body}, nil
+	return &Post{Title: title, Body: string(body)}, nil
 }
 
 func getPostListHandler(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusOK)
-	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Access-Control-Allow-Origin", "*")
 	data, _ := getPostList() // @todo handle the error
+	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(data)
 }
 
 func getPostHandler(w http.ResponseWriter, r *http.Request) {
-	title := r.URL.Path[len("/post/"):]
-	w.Header().Set("Access-Control-Allow-Origin", "*")
+	title := r.URL.Path[len("/posts/"):]
 	p, _ := getPost(title)
-	fmt.Fprintf(w, "<h1>%s</h1><div>%s</div>", p.Title, p.Body)
+
+	log.Printf("post = %v", p)
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(p)
 }
 
 func main() {
-	http.HandleFunc("/posts", getPostListHandler)
-	http.HandleFunc("/post/", getPostHandler)
+	http.HandleFunc("/posts", middleware.WithMiddleware(getPostListHandler))
+	http.HandleFunc("/posts/", middleware.WithMiddleware(getPostHandler))
 	log.Fatal(http.ListenAndServe(":5555", nil))
 }
